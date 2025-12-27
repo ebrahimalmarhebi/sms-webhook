@@ -1,16 +1,18 @@
 from flask import Flask, request, jsonify
+import os
 
 app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
 def home():
-    return "SMS Webhook is running ✅"
+    return "SMS Webhook is running"
 
 @app.route("/sms", methods=["POST"])
 def sms_webhook():
-    data = request.json
+    data = request.get_json(force=True, silent=True)
     print("Incoming SMS:", data)
-    return jsonify({"status": "received"}), 200
+    return jsonify({"status": "received"})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

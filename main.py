@@ -1,36 +1,30 @@
-import os
-from flask import Flask, request, jsonify
+from flask import Flask, request
 import telebot
-import threading
+import os
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
+
 app = Flask(__name__)
 
-# ===== Telegram Bot =====
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "✅ البوت شغال الآن!")
+    bot.send_message(message.chat.id, "✅ البوت شغال")
 
-@bot.message_handler(func=lambda message: True)
+@bot.message_handler(func=lambda m: True)
 def echo(message):
-    bot.reply_to(message, f"وصلني: {message.text}")
+    bot.send_message(message.chat.id, f"وصلت رسالتك: {message.text}")
 
-def run_bot():
-    bot.infinity_polling(skip_pending=True)
+@app.route('/sms', methods=['POST'])
+def webhook():
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return "OK", 200
 
-# ===== Flask Webhook =====
-@app.route("/", methods=["GET"])
+@app.route('/')
 def home():
-    return "✅ SMS Webhook شغال"
-
-@app.route("/sms", methods=["POST"])
-def sms():
-    data = request.json
-    bot.send_message(chat_id=message.chat.id, text=str(data))
-    return jsonify({"status": "received"})
+    return "Bot is running", 200
 
 if __name__ == "__main__":
-    threading.Thread(target=run_bot).start()
     app.run(host="0.0.0.0", port=8080)

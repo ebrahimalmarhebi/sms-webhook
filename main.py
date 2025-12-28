@@ -1,40 +1,132 @@
 import os
-import time
-import requests
+import logging
 from flask import Flask, request
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
-    ContextTypes,
+    ContextTypes
 )
 
-# ====== ENV VARIABLES ======
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-SMSFAST_API_KEY = os.getenv("SMSFAST_API_KEY")
+# ======================
+# الإعدادات
+# ======================
 
-if not BOT_TOKEN or not SMSFAST_API_KEY:
-    raise RuntimeError("Missing environment variables")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # توكن البوت من Render
+OWNER_ID = 7181297222  # رقمك أنت فقط (Chat ID)
 
-# ====== FLASK APP ======
+# ======================
+# Flask
+# ======================
+
 app = Flask(__name__)
 
-# ====== TELEGRAM APP ======
+# ======================
+# Telegram Bot
+# ======================
+
+logging.basicConfig(level=logging.INFO)
+
 application = Application.builder().token(BOT_TOKEN).build()
 
-# ====== COMMANDS ======
+
+# ======================
+# /start
+# ======================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    # 🔒 البوت خاص
+    if user_id != OWNER_ID:
+        await update.message.reply_text("🚫 هذا البوت خاص")
+        return
+
     keyboard = [
-        [InlineKeyboardButton("📲 شراء أرقام", callback_data="buy_numbers")],
-        [InlineKeyboardButton("💰 الرصيد", callback_data="balance")],
+        [InlineKeyboardButton("📲 شراء رقم Telegram", callback_data="buy_telegram")],
+        [InlineKeyboardButton("📞 شراء رقم WhatsApp", callback_data="buy_whatsapp")],
+        [InlineKeyboardButton("⚙️ الإعدادات", callback_data="settings")]
     ]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
+
     await update.message.reply_text(
-        "👋 مرحبًا بك\nاختر ما تريد:", reply_markup=reply_markup
+        "👋 أهلاً بك\nاختر ما تريد:",
+        reply_markup=reply_markup
     )
 
-async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+# ======================
+# الأزرار
+# ======================
+
+async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.from_user.id != OWNER_ID:
+        await query.edit_message_text("🚫 هذا البوت خاص")
+        return
+
+    if query.data == "buy_telegram":
+        await query.edit_message_text(
+            "📲 شراء رقم Telegram\n\n"
+            "✍️ اكتب رمز الدولة:\n"
+            "مثال:\n"
+            "+966 أو SA"
+        )
+
+    elif query.data == "buy_whatsapp":
+        await query.edit_message_text(
+            "📞 شراء رقم WhatsApp\n\n"
+            "✍️ اكتب رمز الدولة:\n"
+            "مثال:\n"
+            "+966 أو SA"
+        )
+
+    elif query.data == "settings":
+        await query.edit_message_text(
+            "⚙️ الإعدادات\n\n"
+            "لا توجد إعدادات حالياً"
+        )
+
+
+# ======================
+# Webhook
+# ======================
+
+@app.route("/", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), application.bot)
+    application.update_queue.put_nowait(update)
+    return "ok"
+
+
+@app.route("/", methods=["GET"])
+def index():
+    return "Bot is running"
+
+
+# ======================
+# Handlers
+# ======================
+
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CallbackQueryHandler(buttons))
+
+
+# ======================
+# Run
+# ======================
+
+if __name__ == "__main__":
+    application.run_polling()async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
